@@ -288,13 +288,14 @@ int main() {
                     gpioWrite(SYNCPIN, 0);
                     atomic_store(&sync_status, 0);
                 }
-
+                
                 if (new_time % 10 == 0) {
-                    gpio_pulse_ms(SYNCPIN, PIN_HIGH_LONG);
+                    gpio_pulse_ms(TICKPIN, PIN_HIGH_LONG);
                 } 
                 else {
-                    gpio_pulse_ms(SYNCPIN, PIN_HIGH_SHORT);
+                    gpio_pulse_ms(TICKPIN, PIN_HIGH_SHORT);
                 }
+                
             }
         }
     }
