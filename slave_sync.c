@@ -22,7 +22,7 @@
 
 
 // ---- Global Configuration ----
-#define SYNC_PORT 5000
+#define SYNC_PORT 12345
 #define SYNC_BUF_SIZE 8 // one uint64_t
 #define MICROTICK_INTERVAL_NS 1000000 // 1 ms
 #define MICROTICKS_PER_UNIT 20        // 20 ms = 1 logical time unit
