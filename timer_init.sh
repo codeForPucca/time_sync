@@ -9,9 +9,10 @@
 # Description:       Ein Init-Skript zum Start eines benutzerdefinierten Programms
 ### END INIT INFO
 
-DAEMON=/
+
+DAEMON=/home/vio/time_sync/slave_sync.c
 NAME=time_syncer
-PIDFILE=/home/vio/time_sync/slave_sync.c
+PIDFILE=/var/run/$NAME.pid
 
 start() {
     echo "Start $NAME..."
