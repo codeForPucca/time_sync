@@ -52,6 +52,15 @@ void handle_interrupt(int sig) {
     exit(1);
 }
 
+uint64_t ntohll(uint64_t val) {
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    return (((uint64_t)ntohl(val & 0xFFFFFFFF)) << 32) | ntohl(val >> 32);
+#else
+    return val;
+#endif
+}
+
+
 void gpio_pulse_ms(unsigned gpio, unsigned duration_ms) {
     gpioWrite(gpio, 1);
     // gpioDelay-> Delay for a number of microseconds -> we want milliseconds
@@ -92,25 +101,28 @@ void *udp_sync_thread(void *arg) {
     while (1) {
         ssize_t n = recv(sockfd, &remote_tick, sizeof(remote_tick), 0);
         if (n == sizeof(remote_tick)) {
+            remote_tick = ntohll(remote_tick);  // Convert from network byte order
             uint64_t local = atomic_load(&global_time);
             if (remote_tick > local + 1 || remote_tick + 1 < local) {
                 DEBUG_PRINT("Time correction: local=%lu, received=%lu → updating\n", local, remote_tick);
                 atomic_store(&global_time, remote_tick);
                 atomic_store(&last_sync_time, remote_tick);
                  if (atomic_load(&sync_status) == 0){
-                gpioWrite(SYNCPIN, 1);
-                DEBUG_PRINT("pin is now high");
-                atomic_store(&sync_status, 1);
-                DEBUG_PRINT("in sync again");}
+                    gpioWrite(SYNCPIN, 1);
+                    DEBUG_PRINT("pin is now high");
+                    atomic_store(&sync_status, 1);
+                    DEBUG_PRINT("in sync again");
+                }
 
             }
             else {
                 DEBUG_PRINT("in sync");
                 atomic_store(&last_sync_time, local);
-                if (atomic_load(&sync_status) == 0){
-                gpioWrite(SYNCPIN, 1);
-                DEBUG_PRINT("pin is now high");
-                atomic_store(&sync_status, 1);}
+                if (atomic_load(&sync_status) == 0) {
+                    gpioWrite(SYNCPIN, 1);
+                    DEBUG_PRINT("pin is now high");
+                    atomic_store(&sync_status, 1);
+                }
             }
         } else {
             perror("Invalid sync packet");
@@ -130,22 +142,22 @@ int main() {
 
     //Initialze GPIO
     if (gpioInitialise() < 0) {
-    fprintf(stderr, "pigpio init failed\n");
-    exit(EXIT_FAILURE);
+        fprintf(stderr, "pigpio init failed\n");
+        exit(EXIT_FAILURE);
     }
 
     int ret = gpioSetMode(tickpin, PI_OUTPUT);
 
     if (ret == PI_BAD_GPIO) {
-    fprintf(stderr, "Invalid GPIO pin %d, trying backup pin %d...\n", tickpin, BACKUP_TICKPIN);
-    tickpin = BACKUP_TICKPIN;
-    ret = gpioSetMode(tickpin, PI_OUTPUT);
-}
+        fprintf(stderr, "Invalid GPIO pin %d, trying backup pin %d...\n", tickpin, BACKUP_TICKPIN);
+        tickpin = BACKUP_TICKPIN;
+        ret = gpioSetMode(tickpin, PI_OUTPUT);
+    }
 
-if (ret != 0) {
-    fprintf(stderr, "Failed to set GPIO pin mode on pin %d (code %d)\n", tickpin, ret);
-    exit(EXIT_FAILURE);
-}
+    if (ret != 0) {
+        fprintf(stderr, "Failed to set GPIO pin mode on pin %d (code %d)\n", tickpin, ret);
+        exit(EXIT_FAILURE);
+    }
 
 
     gpioWrite(TICKPIN, 0);
@@ -193,27 +205,29 @@ if (ret != 0) {
     while (1) {
         // Block until the timer expires (1ms tick or multiple if delayed)
       
-ssize_t n = read(fd, &expirations, sizeof(expirations));
-if (n == -1) {
-    if (errno == EAGAIN) {
-        // Non-blocking read: no timer expired yet
-        continue;
-    } else if (errno == EINTR) {
-        // Interrupted by signal – safe to retry
-        continue;
-    } else {
-        perror("read failed");
-        exit(EXIT_FAILURE);
-    }
-}
-else if (n == 0) {
-    fprintf(stderr, "Unexpected EOF on timerfd (read returned 0)\n");
-    exit(EXIT_FAILURE);
-}
-else if (n != sizeof(expirations)) {
-    fprintf(stderr, "Incomplete read from timerfd\n");
-    exit(EXIT_FAILURE);
-}
+        ssize_t n = read(fd, &expirations, sizeof(expirations));
+        if (n == -1) {
+            if (errno == EAGAIN) {
+                // Non-blocking read: no timer expired yet
+                continue;
+            }
+            else if (errno == EINTR) {
+                // Interrupted by signal – safe to retry
+                continue;
+            }
+            else {
+                perror("read failed");
+                exit(EXIT_FAILURE);
+            }
+        }
+        else if (n == 0) {
+            fprintf(stderr, "Unexpected EOF on timerfd (read returned 0)\n");
+            exit(EXIT_FAILURE);
+        }
+        else if (n != sizeof(expirations)) {
+            fprintf(stderr, "Incomplete read from timerfd\n");
+            exit(EXIT_FAILURE);
+        }
         // For each missed or elapsed tick, update local microtick state
         for (uint64_t i = 0; i < expirations; ++i) {
             microtick_counter++;
@@ -233,9 +247,10 @@ else if (n != sizeof(expirations)) {
                 }
 
                 if (new_time % 10 == 0) {
-                 gpio_pulse_ms(TICKPIN, PIN_HIGH_LONG);
-                 } else {
-                gpio_pulse_ms(TICKPIN, PIN_HIGH_SHORT);
+                    gpio_pulse_ms(TICKPIN, PIN_HIGH_LONG);
+                }
+                else {
+                    gpio_pulse_ms(TICKPIN, PIN_HIGH_SHORT);
                 }
             }
         }

@@ -10,7 +10,7 @@
 ### END INIT INFO
 
 
-DAEMON=/home/vio/time_sync/slave_sync.c
+DAEMON=/home/vio/time_sync/slave
 NAME=time_syncer
 PIDFILE=/var/run/$NAME.pid
 
