@@ -233,7 +233,7 @@ int main() {
             microtick_counter++;
             if (microtick_counter >= MICROTICKS_PER_UNIT) {
                 microtick_counter = 0;
-                new_time=atomic_fetch_add(&global_time, 1)+1;  // we add 1 here additionally because atomic_fetch_add returns the value before the addition
+                new_time=atomic_fetch_add(&global_time, 1);  // we add 1 here additionally because atomic_fetch_add returns the value before the addition
 
                 DEBUG_PRINT("Global time incremented: %lu\n", new_time);
 
